@@ -4484,7 +4484,7 @@ function tryLoadPlaneModel(type, g, s, fallbackFn, gearFn){
    const wrap = new THREE.Group();
    wrap.rotation.order = 'XYZ';
    wrap.rotation.x = Math.PI / 2;  // Z-up → Y-up
-   wrap.rotation.z = Math.PI;       // face +Z
+   wrap.rotation.y = Math.PI;       // face +Z (Y rotation keeps it right-side up)
    wrap.add(obj);
    // After rotation, lift so the bottom of the model sits at y = 0
    wrap.updateMatrixWorld(true);
