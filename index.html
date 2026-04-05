@@ -4472,6 +4472,7 @@ function tryLoadPlaneModel(type, g, s, fallbackFn){
    const sc    = (s * 70) / Math.max(size.x, size.y, size.z);
    obj.scale.setScalar(sc);
    obj.position.set(-cen.x*sc, -cen.y*sc, -cen.z*sc);
+   obj.rotation.y = Math.PI; // OBJ exports face -Z, game expects +Z
    g.add(obj);
   }, undefined, fallbackFn);
  }, undefined, fallbackFn);
