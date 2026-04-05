@@ -4473,6 +4473,7 @@ function tryLoadPlaneModel(type, g, s, fallbackFn){
    obj.scale.setScalar(sc);
    obj.position.set(-cen.x*sc, -cen.y*sc, -cen.z*sc);
    obj.rotation.y = Math.PI; // OBJ exports face -Z, game expects +Z
+   obj.rotation.x = -Math.PI / 2; // Tinkercad Z-up → Three.js Y-up
    g.add(obj);
   }, undefined, fallbackFn);
  }, undefined, fallbackFn);
