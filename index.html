@@ -4451,12 +4451,17 @@ buildWorldAirports(1); // only build world 1 at start
 // ═══════════════════════════════════════════════════════════════
 
 // ── Generic OBJ model loader ─────────────────────────────────────
-// Tries to load models/{type}.obj + models/{type}.mtl from the same
-// folder as the HTML file. If the file isn't found, runs fallbackFn
-// instead. Scale target is 70 game units on the longest axis × SC.
-function tryLoadPlaneModel(type, g, s, fallbackFn){
+// On success: loads model, centers it correctly, adds dummy gear groups.
+// On failure: runs fallbackFn (geometry) then gearFn (procedural gear).
+function tryLoadPlaneModel(type, g, s, fallbackFn, gearFn){
+ // Helper: add empty gear groups so animation code always has something to rotate
+ function addDummyGear(){
+  const mk=()=>{const gg=new THREE.Group();g.add(gg);return gg;};
+  g.userData.gearL=mk(); g.userData.gearR=mk(); g.userData.gearN=mk();
+ }
+ function doFallback(){ fallbackFn(); gearFn(); }
  if(typeof THREE.OBJLoader === 'undefined' || typeof THREE.MTLLoader === 'undefined'){
-  fallbackFn(); return;
+  doFallback(); return;
  }
  const mtlL = new THREE.MTLLoader();
  mtlL.setPath('models/');
@@ -4466,17 +4471,29 @@ function tryLoadPlaneModel(type, g, s, fallbackFn){
   objL.setMaterials(mats);
   objL.setPath('models/');
   objL.load(type+'.obj', function(obj){
-   const box3 = new THREE.Box3().setFromObject(obj);
-   const cen   = box3.getCenter(new THREE.Vector3());
-   const size  = box3.getSize(new THREE.Vector3());
-   const sc    = (s * 70) / Math.max(size.x, size.y, size.z);
+   // Scale to target size
+   const b1 = new THREE.Box3().setFromObject(obj);
+   const size = b1.getSize(new THREE.Vector3());
+   const sc = (s * 70) / Math.max(size.x, size.y, size.z);
    obj.scale.setScalar(sc);
-   obj.position.set(-cen.x*sc, -cen.y*sc, -cen.z*sc);
-   obj.rotation.y = Math.PI; // OBJ exports face -Z, game expects +Z
-   obj.rotation.x = -Math.PI / 2; // Tinkercad Z-up → Three.js Y-up
-   g.add(obj);
-  }, undefined, fallbackFn);
- }, undefined, fallbackFn);
+   // Centre the raw OBJ at its own origin
+   const b2 = new THREE.Box3().setFromObject(obj);
+   const cen = b2.getCenter(new THREE.Vector3());
+   obj.position.set(-cen.x, -cen.y, -cen.z);
+   // Wrap so we can rotate without shifting the centre
+   const wrap = new THREE.Group();
+   wrap.rotation.order = 'XYZ';
+   wrap.rotation.x = Math.PI / 2;  // Z-up → Y-up
+   wrap.rotation.z = Math.PI;       // face +Z
+   wrap.add(obj);
+   // After rotation, lift so the bottom of the model sits at y = 0
+   wrap.updateMatrixWorld(true);
+   const b3 = new THREE.Box3().setFromObject(wrap);
+   wrap.position.y = -b3.min.y;
+   g.add(wrap);
+   addDummyGear();
+  }, undefined, doFallback);
+ }, undefined, doFallback);
 }
 
 // ── Per-plane fallback geometry (used when no .obj file is present) ──
@@ -4732,9 +4749,8 @@ function buildPlane(id){
  const fbArgs=[g,s,box,cone,cyl,BM,WM,EM,AM,DM,M,propDisc];
  const fallback=FB_FNS[type]?()=>FB_FNS[type](...fbArgs):()=>_fb_b737(...fbArgs);
 
- // ── Try loading OBJ, always add gear ────────────────────────────
- tryLoadPlaneModel(type, g, s, fallback);
- (GEAR[type]||defaultGear)();
+ // ── Try loading OBJ; gear only runs on fallback ──────────────────
+ tryLoadPlaneModel(type, g, s, fallback, GEAR[type]||defaultGear);
 
  return g;
 
